@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+from math import log
 import os
 import pickle
 import shutil
@@ -9,6 +10,7 @@ import sys
 import time
 from copy import deepcopy
 from multiprocessing import Pool
+from turtle import onkeyrelease
 
 from network import Bond, Network
 
@@ -43,58 +45,29 @@ def clean_up(
     network.write_to_file(network_filepath)
 
 
-def p_ratio(transverse_strain: float, axial_strain: float) -> float:
-    """Poisson's ratio - measure of Poisson's effect, i.e.,
-    deformation in the direction perpendicular to direction
-    of loading. Elongating dimension devided by shrinking dimension.
-
-    Parameters
-    ----------
-    trans_strain :  
-        Increasing dimension
-    axial_strain : float
-        Shrinking dimension
-
-    Returns
-    -------
-    float
-        P ratio
-    """
-    return -axial_strain / transverse_strain
+def get_elastic_data(log_file: str) -> ElasticData:
+    with open(log_file, encoding="utf8") as file:
+        content = file.readlines()
+        p_ratio = float(content[-2].strip().split(" ")[3])
+        shear_modulus = float(content[-4].strip().split(" ")[4])
+        bulk_modulus = float(content[-8].strip().split(" ")[3])
+        return ElasticData(p_ratio, bulk_modulus, shear_modulus)
 
 
-def p_ratio_from_file(
-        network_directory: str,
-        network_file: str = "original_network.lmp"
-) -> float:
-    """Computes Poisson's ratio from a network file by running compression simulation.
-
-    Parameters
-    ----------
-    network_directory : str
-        Directory containing a network file and simulation files (see example folder)
-    network_file : str, optional
-        filename for the network file, by default "original_network.lmp"
-
-    Returns
-    -------
-    float
-        poisson's ratio
-    """
-    original_network_file = os.path.realpath(os.path.join(network_directory, network_file))
+def get_elastic_data_from_file(
+    network_directory: str, network_file: str = "original_network.lmp"
+) -> ElasticData:
+    original_network_file = os.path.realpath(
+        os.path.join(network_directory, network_file)
+    )
     network_file = os.path.realpath(os.path.join(network_directory, "network.lmp"))
-    output_network_file = os.path.realpath(os.path.join(network_directory, "output_network.lmp"))
-    uncompressed_network = Network.from_data_file(original_network_file, include_angles=False, include_dihedrals=False)
-    uncompressed_network.write_to_file(network_file)
-    run_lammps(network_directory, mode='single', num_threads=1, num_procs=1)
-    compressed_network = Network.from_data_file(output_network_file, include_angles=False, include_dihedrals=False)
-    transverse_strain = compressed_network.box.x - uncompressed_network.box.x
-    axial_strain = compressed_network.box.y - uncompressed_network.box.y
-    return p_ratio(transverse_strain, axial_strain)    
+    run_lammps(network_directory, mode="single", num_threads=1, num_procs=1)
+    return get_elastic_data(os.path.join(network_directory, "log.lammps"))
 
 
 def run_lammps(
     calculation_directory: str,
+    input_file: str = "in.elastic",
     mode: str = "single",
     num_threads: int = 1,
     num_procs: int = 1,
@@ -102,8 +75,8 @@ def run_lammps(
     """
     A helper function which runs the external lammps code.
     """
-    input_file_path = os.path.join(calculation_directory, "in.compression")
-    mpi_command = f"mpirun -np {num_procs} lmp -in in.stress".split()
+    input_file_path = os.path.join(calculation_directory, input_file)
+    mpi_command = f"mpirun -np {num_procs} lmp -in {input_file}".split()
     command = f"lmp -in {input_file_path}".split()
 
     os.chdir(os.path.dirname(input_file_path))
@@ -115,15 +88,28 @@ def run_lammps(
 
 
 @dataclasses.dataclass
-class CalculationResult:
-    """Dataclass which combines the result of the network optimization step.
-    """
-    bond: Bond
+class ElasticData:
+    """Combines the results of lammps calculation."""
+
     p_ratio: float
-    others: list[CalculationResult] | None = None
+    bulk_modulus: float
+    shear_modulus: float
 
     def __repr__(self) -> str:
-        return f"Calc result: Bond: {self.bond}, P ratio = {self.p_ratio}"
+        return f"Elastic data: P: {round(self.p_ratio, 3)}, B = {round(self.bulk_modulus, 3)}, G = {round(self.shear_modulus, 3)}"
+
+
+@dataclasses.dataclass
+class CalculationResult:
+    """Dataclass which combines the result of the network optimization step."""
+
+    bond: Bond
+    elastic_data: ElasticData
+    dG: float
+    others: list[ElasticData] | None = None
+
+    def __repr__(self) -> str:
+        return f"Calc result: Bond: {self.bond}, {self.elastic_data}"
 
 
 @dataclasses.dataclass
@@ -132,34 +118,35 @@ class CalculationSetup:
     A dataclass accepted by `run_iteration()` function.
     A collection of arguments basically.
     """
+
     network_directory: str
     bonds_list: list[Bond]
     network_file: str = "original_network.lmp"
 
 
-class StepResult():
+class StepResult:
     step_number: int
-    p_ratio: float
+    elastic_data: ElasticData
     bond_removed: Bond
     network: Network
     closest_contenders: None | list[CalculationResult]
 
     def __init__(
-            self,
-            step_number: int,
-            p_ratio: float,
-            bond_removed: Bond,
-            network: Network,
-            closest_contenders: None | list[CalculationResult] = None
+        self,
+        step_number: int,
+        p_ratio: float,
+        bond_removed: Bond,
+        network: Network,
+        closest_contenders: None | list[CalculationResult] = None,
     ) -> None:
         self.step_number = step_number
         self.network = network
-        self.p_ratio = p_ratio
+        self.dG = p_ratio
         self.bond_removed = bond_removed
         self.closest_contenders = closest_contenders
-    
+
     def __repr__(self) -> str:
-        return f"Step {self.step_number}: FF={self.p_ratio}, Bond removed: {self.bond_removed}"
+        return f"Step {self.step_number}: FF={self.dG}, Bond removed: {self.bond_removed}"
 
 
 def run_iteration(setup: CalculationSetup) -> CalculationResult:
@@ -179,26 +166,28 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
     Returns
     -------
     CalculationResult
-        
+
     """
 
-    initial_p = p_ratio_from_file(setup.network_directory)
     original_network_file = os.path.join(setup.network_directory, setup.network_file)
-    output_network_file = os.path.join(setup.network_directory, "output_network.lmp")
-    print(setup.network_directory)
-    print(original_network_file)
-    print(output_network_file)
+    log_file = os.path.join(setup.network_directory, "log.lammps")
+    # print(setup.network_directory)
+    # print(original_network_file)
+    # print(log_file)
 
-    original_network = Network.from_data_file(original_network_file, include_angles=False, include_dihedrals=False)
-
-    current_p: float = initial_p
+    original_network = Network.from_data_file(
+        original_network_file, include_angles=False, include_dihedrals=False
+    )
+    original_network.write_to_file(os.path.join(setup.network_directory, "network.lmp"))
+    initial_elastic_data: ElasticData = get_elastic_data_from_file(setup.network_directory)
+    print(initial_elastic_data)
+    current_elastic_data = initial_elastic_data
+    best_dG: float = 10000000000000.0
     bond_to_be_deleted: Bond | None = None
     others: list[Bond] = []
     for index, bond in enumerate(setup.bonds_list):
-        
         # deepcopy because we don't want to modify the original network
         current_network = deepcopy(original_network)
-
         # remove a bond and write the network to a file
         current_network.remove_bond(bond)
         current_network.write_to_file("network.lmp")
@@ -206,31 +195,35 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
         # run lammps on the previously written network
         run_lammps(setup.network_directory, mode="single")
 
-        # read the minimized network
-        # calculate source strain, target strains, and fitness function
-        compressed_network = Network.from_data_file(output_network_file, include_angles=False, include_dihedrals=False)
-        transverse_strain = compressed_network.box.x - current_network.box.x
-        axial_strain = compressed_network.box.y - current_network.box.y
-        new_p = p_ratio(transverse_strain, axial_strain)
+        # get the new elastic data for the network with N-1 bonds
+        new_elastic_data = get_elastic_data(log_file)
+        dG = abs(initial_elastic_data.shear_modulus - new_elastic_data.shear_modulus)
 
-        if new_p < current_p and len(bond.atom1.bonded) >= 4 and len(bond.atom2.bonded) >= 4:
-            current_p = new_p
-            print(f"New P! {new_p}")
+        # nominate the bond for deletion if the change in G 
+        # is lower than the one previously recorder
+        if dG < best_dG and len(bond.atom1.bonded) >= 4 and len(bond.atom2.bonded) >= 4:
+            best_dG = dG
+            current_elastic_data = new_elastic_data
             bond_to_be_deleted = bond
-        elif new_p < initial_p and len(bond.atom1.bonded) >= 4 and len(bond.atom2.bonded) >= 4:
-            others.append(CalculationResult(bond, new_p, None))
-            print(f"Meh P {new_p}")
+            # print(f"dG={round(best_dG, 3)}, new data: {new_elastic_data}")
+        # if dG is not lower than the best, but still lower than initial,
+        # add it to the others pool
+        elif (
+            dG >= best_dG
+            and len(bond.atom1.bonded) >= 4
+            and len(bond.atom2.bonded) >= 4
+        ):
+            others.append(CalculationResult(bond, new_elastic_data, dG, None))
         else:
-            print(f"Worse p {new_p}")
             pass
-            # don't need to do anything when the removal 
+            # don't need to do anything when the removal
             # of the bond results in the increase of P ratio
-    return CalculationResult(bond_to_be_deleted, current_p, others)
+    return CalculationResult(bond_to_be_deleted, current_elastic_data, best_dG, others)
 
 
 def load_optimization_log(pickle_file: str) -> list[StepResult]:
     optimization_log: list[StepResult] = []
-    with open(pickle_file, 'rb') as log_file:
+    with open(pickle_file, "rb") as log_file:
         try:
             while True:
                 optimization_log.append(pickle.load(log_file))
@@ -242,16 +235,16 @@ def load_optimization_log(pickle_file: str) -> list[StepResult]:
 def print_history(log_file_path: str, n_closest: int = 5):
     history = load_optimization_log(log_file_path)
     for step in history[:10]:
-        print(f"{step.step_number}: {round(step.p_ratio, 4)}")
+        print(f"{step.step_number}: {round(step.dG, 4)}")
         for index, close in enumerate(step.closest_contenders[:5]):
-            print(f"  +{round(close.p_ratio-step.p_ratio, 4)}")
+            print(f"  +{round(close.elastic_data-step.dG, 4)}")
         print("--------------------")
 
 
 def parallel(
     main_calculation_directory: str,
     n_procs: int = 6,
-    p_threshold: float = 0.01,
+    dG_threshold: float = 0.01,
 ) -> dict[int, StepResult]:
     """
     The main function which performs the network optimization.
@@ -260,7 +253,7 @@ def parallel(
     where N is the serial number for the current iteration, starting from 1.
     Multiprocessing is implemented in way such that for every core requested a seperate directory
     named "core_N" is created within the "step_N" directory.
-    The total number of bond deletions are separated into M batches, where M=n_bonds/_ncores. Each core 
+    The total number of bond deletions are separated into M batches, where M=n_bonds/_ncores. Each core
     is assigned its own batch. After all indivial iteration are complete, one bond is removed from the network which resulted
     in the highest decrease of fitness function.
 
@@ -275,22 +268,26 @@ def parallel(
     intermidiate_results = {}
 
     # create a log file. Overwrite if it's there already
-    log_file_path = os.path.join(main_calculation_directory, 'optimization_log.pkl')
-    log_file = open(log_file_path, 'wb')
-    log_file.close()
+    opt_log_file_path = os.path.join(main_calculation_directory, "optimization_log.pkl")
+    opt_log_file = open(opt_log_file_path, "wb")
+    opt_log_file.close()
     while True:
         # create a directory for the current calculation step
-        current_working_directory = os.path.realpath(os.path.join(main_calculation_directory, f"step_{step_counter}"))
-        print(f"cwd {current_working_directory}")
+        current_working_directory = os.path.realpath(
+            os.path.join(main_calculation_directory, f"step_{step_counter}")
+        )
+        # print(f"cwd {current_working_directory}")
         os.makedirs(current_working_directory)
 
-        # if it's not the first iteration, copy `result.lmp` file 
+        # if it's not the first iteration, copy `result.lmp` file
         # from the previous step directory and rename it accordingly
         print(f"Step {step_counter}")
         if step_counter != 1:
             shutil.copy(
-                os.path.join(main_calculation_directory, f"step_{step_counter-1}", "result.lmp"),
-                os.path.join(current_working_directory)
+                os.path.join(
+                    main_calculation_directory, f"step_{step_counter-1}", "result.lmp"
+                ),
+                os.path.join(current_working_directory),
             )
             os.rename(
                 os.path.join(current_working_directory, "result.lmp"),
@@ -298,12 +295,18 @@ def parallel(
             )
 
         # divide all the bonds in the network into a number of tasks equal to the number of cores
-        network = (Network.from_data_file(os.path.join(main_calculation_directory, "original_network.lmp"), include_angles=False, include_dihedrals=False)
+        network = (
+            Network.from_data_file(
+                os.path.join(main_calculation_directory, "original_network.lmp"),
+                include_angles=False,
+                include_dihedrals=False,
+            )
             if step_counter == 1
             else Network.from_data_file(
                 os.path.join(current_working_directory, "original_network.lmp")
-            ))
-        
+            )
+        )
+
         n_tasks = len(network.bonds) // n_procs
         remainder = len(network.bonds) % n_procs
         tasks = []
@@ -317,14 +320,17 @@ def parallel(
         # copy the calculation files
         # create a list of calculation setups
         calc_files = [
-            os.path.join(main_calculation_directory, "in.compression"),
+            os.path.join(main_calculation_directory, "in.elastic"),
             os.path.join(main_calculation_directory, "init.mod"),
             os.path.join(main_calculation_directory, "potential.mod"),
+            os.path.join(main_calculation_directory, "displace.mod"),
         ]
 
         calculations: list[CalculationSetup] = []
         for i, task in enumerate(tasks):
-            core_dir = os.path.realpath(os.path.join(current_working_directory, f"core_{i+1}"))
+            core_dir = os.path.realpath(
+                os.path.join(current_working_directory, f"core_{i+1}")
+            )
             os.makedirs(core_dir)
             # print(core_dir)
             calculations.append(CalculationSetup(core_dir, task))
@@ -346,7 +352,11 @@ def parallel(
             # also copy the same file into every directory
             for i in range(len(tasks)):
                 shutil.copy(
-                    os.path.join(main_calculation_directory, f"step_{step_counter-1}", "result.lmp"),
+                    os.path.join(
+                        main_calculation_directory,
+                        f"step_{step_counter-1}",
+                        "result.lmp",
+                    ),
                     os.path.join(current_working_directory, f"core_{i+1}"),
                 )
                 os.rename(
@@ -365,8 +375,8 @@ def parallel(
         results = [result for result in results if result.bond is not None]
 
         if results:
-            # sort list of CalculationResults by the value of fitness function from lowest to highest    
-            results = sorted(results, key=lambda result: result.p_ratio)
+            # sort list of CalculationResults by the value of fitness function from lowest to highest
+            results = sorted(results, key=lambda result: result.dG)
             best_result = results[0]
             others: list[CalculationResult] = []
             for index, result in enumerate(results):
@@ -374,43 +384,90 @@ def parallel(
                     for other in result.others:
                         others.append(other)
                 else:
-                    others.append(CalculationResult(result.bond, result.p_ratio))
+                    others.append(CalculationResult(result.bond, result.elastic_data, result.dG))
                     for other in result.others:
                         others.append(other)
-            
-            others = sorted(others, key=lambda result: result.p_ratio)
-            print(f"Step {step_counter} => {format(best_result.p_ratio, '.3f')}")
 
-            if step_counter == 1:
-                okay_to_continue = True
-            else:
-                okay_to_continue = intermidiate_results[step_counter-1].p_ratio - best_result.p_ratio >= p_threshold
+            others = sorted(others, key=lambda result: result.dG)
+            print(f"Step {step_counter} => P={format(best_result.elastic_data.p_ratio, '.4f')}")
+
+            # if step_counter == 1:
+            #     okay_to_continue = True
+            # else:
+            #     okay_to_continue = (
+            #         intermidiate_results[step_counter - 1].elastic_data.p_ratio - best_result.elastic_data
+            #         >= dG_threshold
+            #     )
+            okay_to_continue = True
 
             if not okay_to_continue:
                 end_time = time.perf_counter()
-                print(f"Threshold {p_threshold} achieved at step {step_counter}.\nElapsed time: {format(start_time - end_time, '.3f')} s")
-                network = Network.from_data_file(os.path.join(current_working_directory, "original_network.lmp"))
+                print(
+                    f"Threshold {dG_threshold} achieved at step {step_counter}.\nElapsed time: {format(start_time - end_time, '.3f')} s"
+                )
+                network = Network.from_data_file(
+                    os.path.join(current_working_directory, "original_network.lmp")
+                )
                 network.remove_bond(best_result.bond)
-                intermidiate_results[step_counter] = StepResult(step_counter, best_result.p_ratio, best_result.bond, network, closest_contenders=others)
-                final_network_file = os.path.join(main_calculation_directory, "final_result.lmp")
+                intermidiate_results[step_counter] = StepResult(
+                    step_counter,
+                    best_result.elastic_data,
+                    best_result.bond,
+                    network,
+                    closest_contenders=others,
+                )
+                final_network_file = os.path.join(
+                    main_calculation_directory, "final_result.lmp"
+                )
                 network.write_to_file(final_network_file)
                 print(f"The optimized network was written in {final_network_file}")
 
-                with open(log_file_path, 'ab') as log_file:
-                    pickle.dump(StepResult(step_counter, best_result.p_ratio, best_result.bond, network, closest_contenders=others), log_file)
+                with open(opt_log_file_path, "ab") as opt_log_file:
+                    pickle.dump(
+                        StepResult(
+                            step_counter,
+                            best_result.elastic_data,
+                            best_result.bond,
+                            network,
+                            closest_contenders=others,
+                        ),
+                        opt_log_file,
+                    )
                 break
             else:
-                network = Network.from_data_file(os.path.join(current_working_directory, "original_network.lmp"))
+                network = Network.from_data_file(
+                    os.path.join(current_working_directory, "original_network.lmp")
+                )
                 network.remove_bond(best_result.bond)
-                intermidiate_results[step_counter] = StepResult(step_counter, best_result.p_ratio, best_result.bond, network, closest_contenders=others)
-                network.write_to_file(os.path.join(current_working_directory, "result.lmp"))
-                with open(log_file_path, 'ab') as log_file:
-                    pickle.dump(StepResult(step_counter, best_result.p_ratio, best_result.bond, network, closest_contenders=others), log_file)
+                intermidiate_results[step_counter] = StepResult(
+                    step_counter,
+                    best_result.elastic_data,
+                    best_result.bond,
+                    network,
+                    closest_contenders=others,
+                )
+                print(f"Z={network.coordination_number}")
+                network.write_to_file(
+                    os.path.join(current_working_directory, "result.lmp")
+                )
+                with open(opt_log_file_path, "ab") as opt_log_file:
+                    pickle.dump(
+                        StepResult(
+                            step_counter,
+                            best_result.elastic_data,
+                            best_result.bond,
+                            network,
+                            closest_contenders=others,
+                        ),
+                        opt_log_file,
+                    )
                 step_counter += 1
-        else:  
+        else:
             # if no improvement was observed at all, end the process
             end_time = time.perf_counter()
-            print(f"No change in fitness function at step {step_counter}.\nElapsed time: {format(start_time - end_time, '.3f')} s")
+            print(
+                f"No change in fitness function at step {step_counter}.\nElapsed time: {format(start_time - end_time, '.3f')} s"
+            )
             break
 
     return intermidiate_results
@@ -418,7 +475,7 @@ def parallel(
 
 # def main():
 #     # usage_info = "\n[USAGE]:\n\n    python3 ./optimize.py\n"
-    
+
 #     print("Calculation directory: ")
 #     print(">", end='')
 #     calculation_directory = input()
@@ -435,7 +492,7 @@ def parallel(
 #         for file in os.listdir(calculation_directory):
 #             if file.strip() in calculation_files:
 #                 calculation_files[file.strip()] = 1
-        
+
 #         for file, count in calculation_files.items():
 #             if count > 0:
 #                 print(f"File {file} was found")
@@ -471,14 +528,14 @@ def parallel(
 #         sys.exit(0)
 
 #     print("Number of cores: ")
-#     print(">", end='')        
+#     print(">", end='')
 #     n_cores = input()
 #     try:
 #         n_cores = int(n_cores)
 #     except ValueError:
 #         print(f"{n_cores} is not a digid.")
 #         sys.exit(0)
-    
+
 #     input_network = os.path.join(calculation_directory, network_file)
 #     source_beads, target_beads = prepare_network(
 #         input_network,
@@ -489,6 +546,15 @@ def parallel(
 #     parallel(calculation_directory, source_beads, target_beads, n_procs=n_cores)
 
 
-if __name__ == '__main__':
-    network_directory = os.path.realpath("example")
-    parallel(network_directory, n_procs=4, p_threshold=0.002)
+if __name__ == "__main__":
+    os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    wd = os.path.realpath("example")
+    # example = Network.from_data_file(os.path.join(wd, "original_network.lmp"))
+    # example.fix_sort()
+    # example.write_to_file(os.path.join(wd, "original_network2.lmp"))
+    # example = Network.from_data_file("example/original_network.lmp")
+    # setup = CalculationSetup(wd, example.bonds)
+    # result = run_iteration(setup)
+    # print(result.elastic_data)
+    parallel(wd, 5, 0.0000000000000001)
+

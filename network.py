@@ -335,7 +335,7 @@ class Header:
             else:
                 self.improper_types = improper_types
 
-    def write_header(self, file: TextIO) -> None:
+    def write_header(self, file: TextIO, add_box_line: bool = True) -> None:
         file.write("LAMMPS data file.\n\n")
         file.write(add_spaces(f"{str(self.atoms)}", 7))
         file.write(" atoms\n")
@@ -366,6 +366,9 @@ class Header:
         file.write(add_spaces(f"{format(round(self.box_dimensions[4], 6), '.6f')}", 11))
         file.write(add_spaces(f"{format(round(self.box_dimensions[5], 6), '.6f')}", 11))
         file.write(" zlo zhi\n")
+        if add_box_line:
+            file.write("0.0 0.0 0.0 xy xz yz\n")
+
 
 
 class Box:
@@ -387,25 +390,6 @@ class Box:
             f"({round(self.y1, 3)} : {round(self.y2, 3)}) "
             f"({round(self.z1, 3)} : {round(self.z2, 3)})"
         )
-
-    # @classmethod
-    # def from_atoms(cls, file: str) -> Box:
-    #     with open(file, encoding="utf8") as atoms_file:
-    #         content = atoms_file.readlines()
-    #         x1, x2 = (float(content[5].split()[0]), float(content[5].split()[1]))
-    #         y1, y2 = (
-    #             float(content[6].split()[0]),
-    #             float(content[6].split()[1]),
-    #         )
-    #         z1, z2 = (
-    #             float(content[7].split()[0]),
-    #             float(content[7].split()[1]),
-    #         )
-    #     try:
-    #         return Box(x1, x2, y1, y2, z1, z2)
-    #     except NameError:
-    #         print("Failure reading box dimensions, probably not a valid input file.")
-    #         sys.exit(1)
 
     @classmethod
     def from_data_file(cls, file: str) -> Box:
@@ -881,13 +865,13 @@ class Network:
             return pickle.load(network_file)
 
 
-    def write_to_file(self, target_file: str) -> str:
+    def write_to_file(self, target_file: str, add_box_line: bool = True) -> str:
         """
         Writes network to a file a returns the path
         """
         path = os.path.abspath(os.path.join(os.getcwd(), target_file))
         with open(path, "w", encoding="utf8") as file:
-            self.header.write_header(file)
+            self.header.write_header(file, add_box_line=add_box_line)
 
             if self.masses:
                 file.write("\nMasses # ['atom_id', 'mass']\n\n")
