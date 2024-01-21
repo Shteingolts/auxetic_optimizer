@@ -553,7 +553,7 @@ def parallel(
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    wd = os.path.realpath("mod_example")
+    wd = os.path.realpath("example")
     # example = Network.from_data_file(os.path.join(wd, "original_network.lmp"))
     # example.fix_sort()
     # example.write_to_file(os.path.join(wd, "original_network2.lmp"))
