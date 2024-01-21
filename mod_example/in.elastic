@@ -72,6 +72,8 @@ variable ly0 equal ${tmp}
 
 # These formulas define the derivatives w.r.t. strain components
 # Constants uses $, variables use v_ 
+# These are the definition of shear components along certain axes,
+# i.e., G=dP/(dX/l)
 variable d1 equal -(v_pxx1-${pxx0})/(v_delta/v_len0)*${cfac}
 variable d2 equal -(v_pyy1-${pyy0})/(v_delta/v_len0)*${cfac}
 # variable d3 equal -(v_pzz1-${pzz0})/(v_delta/v_len0)*${cfac}
@@ -151,10 +153,10 @@ variable C11cubic equal (${C11all}+${C22all})/2.0
 variable C12cubic equal ${C12all}
 variable C44cubic equal ${C66all}
 
-variable bulkmodulus equal (${C11cubic}+${C12cubic})/2.0
-variable shearmodulus1 equal ${C44cubic}
-variable shearmodulus2 equal (${C11cubic}-${C12cubic})/2.0
-variable poissonratio equal 1.0/(1.0+${C11cubic}/${C12cubic})
+variable bulkmodulus equal ${C11all}+${C22all}
+variable shearmodulus1 equal ${C11all}
+variable shearmodulus2 equal ${C22all}
+variable poissonratio equal (1.0-${shearmodulus1}/${bulkmodulus})/(1.0+${shearmodulus1}/${bulkmodulus})
 
 
 # variable C11cubic equal (${C11all}+${C22all}+${C33all})/3.0
