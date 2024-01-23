@@ -554,11 +554,4 @@ def parallel(
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
     wd = os.path.realpath("mod_example")
-    # example = Network.from_data_file(os.path.join(wd, "original_network.lmp"))
-    # example.fix_sort()
-    # example.write_to_file(os.path.join(wd, "original_network2.lmp"))
-    # example = Network.from_data_file("example/original_network.lmp")
-    # setup = CalculationSetup(wd, example.bonds)
-    # result = run_iteration(setup)
-    # print(result.elastic_data)
     parallel(wd, 5, 0.0000000000000001)

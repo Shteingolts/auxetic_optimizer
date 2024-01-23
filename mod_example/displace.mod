@@ -27,8 +27,8 @@ include potential.mod
 
 variable delta equal -${up}*${len0}
 variable deltaxy equal -${up}*xy
-variable deltaxz equal -${up}*xz
-variable deltayz equal -${up}*yz
+# variable deltaxz equal -${up}*xz
+# variable deltayz equal -${up}*yz
 if "${dir} == 1" then &
    "change_box all x delta 0 ${delta} remap units box"
 if "${dir} == 2" then &
@@ -85,8 +85,8 @@ include potential.mod
 
 variable delta equal ${up}*${len0}
 variable deltaxy equal ${up}*xy
-variable deltaxz equal ${up}*xz
-variable deltayz equal ${up}*yz
+# variable deltaxz equal ${up}*xz
+# variable deltayz equal ${up}*yz
 if "${dir} == 1" then &
    "change_box all x delta 0 ${delta} remap units box"
 if "${dir} == 2" then &

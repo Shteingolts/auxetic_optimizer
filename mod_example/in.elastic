@@ -153,10 +153,11 @@ variable C11cubic equal (${C11all}+${C22all})/2.0
 variable C12cubic equal ${C12all}
 variable C44cubic equal ${C66all}
 
-variable bulkmodulus equal ${C11all}+${C22all}
-variable shearmodulus1 equal ${C11all}
-variable shearmodulus2 equal ${C22all}
-variable poissonratio equal (1.0-${shearmodulus1}/${bulkmodulus})/(1.0+${shearmodulus1}/${bulkmodulus})
+variable bulkmodulus equal (${C11all}+${C66all})/2.0
+variable shearmodulus1 equal (${C11all}-${C66all})/2.0
+variable shearmodulus2 equal (${C11all}-${C66all})/2.0
+variable poissonratio equal (${bulkmodulus}-${shearmodulus1})/(${bulkmodulus}+${shearmodulus1})
+# variable poissonratio equal (1.0-${shearmodulus1}/${bulkmodulus})/(1.0+${shearmodulus1}/${bulkmodulus})
 
 
 # variable C11cubic equal (${C11all}+${C22all}+${C33all})/3.0
