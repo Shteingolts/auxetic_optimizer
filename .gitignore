@@ -1,1 +1,6 @@
+__pycache__
+__pycache__/*
 things_to_try.txt
+mod_example/step_*
+mod_example/step_*/
+mod_example/optimization_log.pkl

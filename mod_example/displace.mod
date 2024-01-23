@@ -107,7 +107,6 @@ if "${dir} == 6" then &
 # Relax atoms positions
 
 minimize ${etol} ${ftol} ${maxiter} ${maxeval}
-
 # Obtain new stress tensor
  
 variable tmp equal pe

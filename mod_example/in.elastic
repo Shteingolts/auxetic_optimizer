@@ -153,21 +153,22 @@ variable C11cubic equal (${C11all}+${C22all})/2.0
 variable C12cubic equal ${C12all}
 variable C44cubic equal ${C66all}
 
-variable bulkmodulus equal (${C11all}+${C66all})/2.0
-variable shearmodulus1 equal (${C11all}-${C66all})/2.0
-variable shearmodulus2 equal (${C11all}-${C66all})/2.0
-variable poissonratio equal (${bulkmodulus}-${shearmodulus1})/(${bulkmodulus}+${shearmodulus1})
-# variable poissonratio equal (1.0-${shearmodulus1}/${bulkmodulus})/(1.0+${shearmodulus1}/${bulkmodulus})
+# variable bulkmodulus equal (${C11all}+${C22all}+2*${C12all})/4.0
+# variable shearmodulus1 equal ${C66all} # simple
+# variable shearmodulus2 equal (${C11all}+${C22all}+3*${C66all}-${C12all})/6.0 # pure
+# variable poissonratio equal (1-${shearmodulus2}/${bulkmodulus})/(1+${shearmodulus2}/${bulkmodulus})
+# variable poissonratio equal -(${C12all}/${C11all})
 
+# dump 8 all atom 1000 deform_dump.lammpstrj
 
 # variable C11cubic equal (${C11all}+${C22all}+${C33all})/3.0
 # variable C12cubic equal (${C12all}+${C13all}+${C23all})/3.0
 # variable C44cubic equal (${C44all}+${C55all}+${C66all})/3.0
 
-# variable bulkmodulus equal (${C11cubic}+2*${C12cubic})/3.0
-# variable shearmodulus1 equal ${C44cubic}
-# variable shearmodulus2 equal (${C11cubic}-${C12cubic})/2.0
-# variable poissonratio equal 1.0/(1.0+${C11cubic}/${C12cubic})
+variable bulkmodulus equal (${C11cubic}+2*${C12cubic})/3.0
+variable shearmodulus1 equal ${C44cubic}
+variable shearmodulus2 equal (${C11cubic}-${C12cubic})/2.0
+variable poissonratio equal 1.0/(1.0+${C11cubic}/${C12cubic})
   
 # For Stillinger-Weber silicon, the analytical results
 # are known to be (E. R. Cowley, 1988):
