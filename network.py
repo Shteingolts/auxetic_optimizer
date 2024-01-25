@@ -370,7 +370,6 @@ class Header:
             file.write("0.0 0.0 0.0 xy xz yz\n")
 
 
-
 class Box:
     x1: float
     x2: float

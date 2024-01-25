@@ -91,7 +91,7 @@ timestep        ${dt}
 variable nsteps equal round(${strainsteps})
 
 fix             4 all nve
-fix             5 all langevin 0.1 0.1 1 904297
+fix             5 all langevin 0.00001 0.00001 1 904297
 #fix		6 all press/berendsen y  0.0 0.0 1 x 0.0 0.0 10
 fix             6 all nph y 0.0 0.0 10 ptemp 0.1 # x 0.0 0.0 10
 
