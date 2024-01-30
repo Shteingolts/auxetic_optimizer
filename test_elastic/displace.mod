@@ -2,6 +2,11 @@
 # modified. See in.elastic for more info.
 #
 # Find which reference length to use
+variable dt equal 0.01
+variable strain equal 1e-3
+variable srate equal 1e-5
+variable strainsteps equal ${strain}/${dt}/${srate}
+timestep ${dt}
 
 if "${dir} == 1" then &
    "variable len0 equal ${lx0}" 
@@ -25,31 +30,32 @@ include potential.mod
 
 # Negative deformation
 
-variable delta equal -${up}*${len0}
-variable deltaxy equal -${up}*xy
+# variable delta equal -${up}*${len0}
+variable delta equal 0.02
+variable deltaxy equal 0.02
+
+# variable deltaxy equal -${up}*xy
 # variable deltaxz equal -${up}*xz
 # variable deltayz equal -${up}*yz
 if "${dir} == 1" then &
-   "change_box all x delta 0 ${delta} remap units box"
+   "fix 11 all deform 1 x erate -${srate} units box remap x" "dump 8 all atom 200 deform_dump.lammpstrj" "run ${strainsteps}"
 if "${dir} == 2" then &
-   "change_box all y delta 0 ${delta} remap units box"
+   "fix 11 all deform 1 y erate -${srate} units box remap x" "run ${strainsteps}"
 # if "${dir} == 1" then &
-#    "change_box all x delta 0 ${delta} xy delta ${deltaxy} xz delta ${deltaxz} remap units box"
+#    "deform all x delta 0 ${delta} xy delta ${deltaxy} xz delta ${deltaxz} remap units box"
 # if "${dir} == 2" then &
-#    "change_box all y delta 0 ${delta} yz delta ${deltayz} remap units box"
+#    "deform all y delta 0 ${delta} yz delta ${deltayz} remap units box"
 # if "${dir} == 3" then &
-#    "change_box all z delta 0 ${delta} remap units box"
+#    "deform all z delta 0 ${delta} remap units box"
 # if "${dir} == 4" then &
-#    "change_box all yz delta ${delta} remap units box"
+#    "deform all yz delta ${delta} remap units box"
 # if "${dir} == 5" then &
-#    "change_box all xz delta ${delta} remap units box"
+#    "deform all xz delta ${delta} remap units box"
 if "${dir} == 6" then &
-   "change_box all xy delta ${delta} remap units box"
+   "fix 11 all deform 1 xy erate -${srate} units box remap x" "run ${strainsteps}"
 
 # Relax atoms positions
-
 minimize ${etol} ${ftol} ${maxiter} ${maxeval}
-
 # Obtain new stress tensor
  
 variable tmp equal pxx
@@ -83,30 +89,32 @@ include potential.mod
 
 # Positive deformation
 
-variable delta equal ${up}*${len0}
-variable deltaxy equal ${up}*xy
+# variable delta equal ${up}*${len0}
+variable delta equal 0.02
+variable deltaxy equal 0.02
+# variable deltaxy equal ${up}*xy
 # variable deltaxz equal ${up}*xz
 # variable deltayz equal ${up}*yz
 if "${dir} == 1" then &
-   "change_box all x delta 0 ${delta} remap units box"
+   "fix 11 all deform 1 x erate ${srate} units box remap x" "dump 8 all atom 200 deform_dump2.lammpstrj" "run ${strainsteps}" 
 if "${dir} == 2" then &
-   "change_box all y delta 0 ${delta} remap units box"
+   "fix 11 all deform 1 y erate ${srate} units box remap x" "run ${strainsteps}"
 # if "${dir} == 1" then &
-#    "change_box all x delta 0 ${delta} xy delta ${deltaxy} xz delta ${deltaxz} remap units box"
+#    "deform all x delta 0 ${delta} xy delta ${deltaxy} xz delta ${deltaxz} remap units box"
 # if "${dir} == 2" then &
-#    "change_box all y delta 0 ${delta} yz delta ${deltayz} remap units box"
+#    "deform all y delta 0 ${delta} yz delta ${deltayz} remap units box"
 # if "${dir} == 3" then &
-#    "change_box all z delta 0 ${delta} remap units box"
+#    "deform all z delta 0 ${delta} remap units box"
 # if "${dir} == 4" then &
-#    "change_box all yz delta ${delta} remap units box"
+#    "deform all yz delta ${delta} remap units box"
 # if "${dir} == 5" then &
-#    "change_box all xz delta ${delta} remap units box"
+#    "deform all xz delta ${delta} remap units box"
 if "${dir} == 6" then &
-   "change_box all xy delta ${delta} remap units box"
+   "fix 11 all deform 1 xy erate ${srate} units box remap x" "run ${strainsteps}"
 
 # Relax atoms positions
-
 minimize ${etol} ${ftol} ${maxiter} ${maxeval}
+
 # Obtain new stress tensor
  
 variable tmp equal pe

@@ -161,9 +161,6 @@ variable poissonratio equal (1-${shearmodulus2}/${bulkmodulus})/(1+${shearmodulu
 # variable poissonratio equal 1.0/(1.0+((${C11all}+${C22all})/2.0)/${C12all})
 # 1.0/(1.0+${C11cubic}/${C12cubic})
 
-
-# dump 8 all atom 1000 deform_dump.lammpstrj
-
 # variable C11cubic equal (${C11all}+${C22all}+${C33all})/3.0
 # variable C12cubic equal (${C12all}+${C13all}+${C23all})/3.0
 # variable C44cubic equal (${C44all}+${C55all}+${C66all})/3.0
