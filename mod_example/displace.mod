@@ -30,7 +30,7 @@ variable deltaxy equal -${up}*xy
 # variable deltaxz equal -${up}*xz
 # variable deltayz equal -${up}*yz
 if "${dir} == 1" then &
-   "change_box all x delta 0 ${delta} remap units box"
+   "change_box all x delta 0 ${delta} xy delta ${deltaxy} remap units box"
 if "${dir} == 2" then &
    "change_box all y delta 0 ${delta} remap units box"
 # if "${dir} == 1" then &
@@ -88,7 +88,7 @@ variable deltaxy equal ${up}*xy
 # variable deltaxz equal ${up}*xz
 # variable deltayz equal ${up}*yz
 if "${dir} == 1" then &
-   "change_box all x delta 0 ${delta} remap units box"
+   "change_box all x delta 0 ${delta} xy delta ${deltaxy} remap units box"
 if "${dir} == 2" then &
    "change_box all y delta 0 ${delta} remap units box"
 # if "${dir} == 1" then &

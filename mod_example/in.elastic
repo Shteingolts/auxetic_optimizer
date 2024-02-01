@@ -123,7 +123,9 @@ variable C11all equal ${C11}
 variable C22all equal ${C22}
 # variable C33all equal ${C33}
 
-variable C12all equal 0.5*(${C12}+${C21})
+variable C12all equal ${C12}
+variable C21all equal ${C21}
+variable C12combined equal 0.5*(${C12}+${C21})
 # variable C13all equal 0.5*(${C13}+${C31})
 # variable C23all equal 0.5*(${C23}+${C32})
 
@@ -148,26 +150,23 @@ variable C26all equal 0.5*(${C26}+${C62})
 # variable C56all equal 0.5*(${C56}+${C65})
 
 # Average moduli for cubic crystals
-
-variable C11cubic equal (${C11all}+${C22all})/2.0
-variable C12cubic equal ${C12all}
-variable C44cubic equal ${C66all}
-
-# variable bulkmodulus equal (${C11all}+${C22all}+2*${C12all})/4.0
-# variable shearmodulus1 equal ${C66all} # simple
-# variable shearmodulus2 equal (${C11all}+${C22all}+3*${C66all}-${C12all})/6.0 # pure
-# variable poissonratio equal (1-${shearmodulus2}/${bulkmodulus})/(1+${shearmodulus2}/${bulkmodulus})
-# variable poissonratio equal -(${C12all}/${C11all})
-
-# dump 8 all atom 1000 deform_dump.lammpstrj
-
 # variable C11cubic equal (${C11all}+${C22all}+${C33all})/3.0
 # variable C12cubic equal (${C12all}+${C13all}+${C23all})/3.0
 # variable C44cubic equal (${C44all}+${C55all}+${C66all})/3.0
 
-variable bulkmodulus equal (${C11cubic}+2*${C12cubic})/3.0
-variable shearmodulus1 equal ${C44cubic}
-variable shearmodulus2 equal (${C11cubic}-${C12cubic})/2.0
+# variable bulkmodulus equal (${C11cubic}+2*${C12cubic})/3.0
+# variable shearmodulus1 equal ${C44cubic}
+# variable shearmodulus2 equal (${C11cubic}-${C12cubic})/2.0
+# variable poissonratio equal 1.0/(1.0+${C11cubic}/${C12cubic})
+
+
+variable C11cubic equal (${C11all}+${C22all})/2.0
+variable C12cubic equal ${C12combined}
+variable C44cubic equal ${C66all}
+
+variable bulkmodulus equal (${C11all}+${C22all}+${C12all}+${C21all})/4.0
+variable shearmodulus1 equal ${C66all}
+variable shearmodulus2 equal (${C11all}+${C22all}-${C12all})/3.0
 variable poissonratio equal 1.0/(1.0+${C11cubic}/${C12cubic})
   
 # For Stillinger-Weber silicon, the analytical results
@@ -185,6 +184,7 @@ print "Elastic Constant C22all = ${C22all} ${cunits}"
 # print "Elastic Constant C33all = ${C33all} ${cunits}"
 
 print "Elastic Constant C12all = ${C12all} ${cunits}"
+print "Elastic Constant C21all = ${C21all} ${cunits}"
 # print "Elastic Constant C13all = ${C13all} ${cunits}"
 # print "Elastic Constant C23all = ${C23all} ${cunits}"
 
