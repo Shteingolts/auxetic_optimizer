@@ -553,5 +553,5 @@ def parallel(
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    wd = os.path.realpath("mod_example")
-    parallel(wd, 12, 0.0000000000000001)
+    wd = os.path.realpath("pos_test")
+    parallel(wd, 14, 0.0000000000000001)

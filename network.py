@@ -556,6 +556,11 @@ class Network:
         atoms_map[id2].bonded.remove(id1)
 
 
+    def set_angle_coeff(self, value: float):
+        for angle in self.angles:
+            angle.energy = value
+
+
     def set_source_target(
         self,
         source_beads: tuple[int, int],
