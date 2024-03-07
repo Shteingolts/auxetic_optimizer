@@ -157,7 +157,9 @@ variable bulkmodulus equal (${C11all}+${C22all}+2*${C12all})/4.0
 variable shearmodulus1 equal ${C66all} # simple
 variable shearmodulus2 equal (${C11all}+${C22all}-${C12all})/3.0 # pure
 variable poissonratio equal (1-${shearmodulus2}/${bulkmodulus})/(1+${shearmodulus2}/${bulkmodulus})
+
 # (1 - G/B)/(1+G/B)
+
 # variable poissonratio equal 1.0/(1.0+((${C11all}+${C22all})/2.0)/${C12all})
 # 1.0/(1.0+${C11cubic}/${C12cubic})
 

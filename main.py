@@ -37,7 +37,7 @@ def clean_up(
     """
     network_filepath = os.path.join(calculation_directory, network_filename)
     network = Network.from_data_file(
-        network_filepath, include_angles=False, include_dihedrals=False
+        network_filepath, include_angles=True, include_dihedrals=False
     )
     network.write_to_file(network_filepath)
 
@@ -170,12 +170,9 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
 
     original_network_file = os.path.join(setup.network_directory, setup.network_file)
     log_file = os.path.join(setup.network_directory, "log.lammps")
-    # print(setup.network_directory)
-    # print(original_network_file)
-    # print(log_file)
 
     original_network = Network.from_data_file(
-        original_network_file, include_angles=False, include_dihedrals=False
+        original_network_file, include_dihedrals=False
     )
     original_network.write_to_file(os.path.join(setup.network_directory, "network.lmp"))
     initial_elastic_data: ElasticData = get_elastic_data_from_file(
@@ -186,6 +183,7 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
     best_dG: float = 10000000000000.0
     bond_to_be_deleted: Bond | None = None
     others: list[Bond] = []
+    start_local = time.perf_counter()
     for index, bond in enumerate(setup.bonds_list):
         # deepcopy because we don't want to modify the original network
         current_network = deepcopy(original_network)
@@ -219,6 +217,9 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
             pass
             # don't need to do anything when the removal
             # of the bond results in the increase of P ratio
+    
+    end_local = time.perf_counter()
+    print(f"{len(setup.bonds_list)} checked in {end_local-start_local:.3f} seconds")
     return CalculationResult(bond_to_be_deleted, current_elastic_data, best_dG, others)
 
 
@@ -264,19 +265,18 @@ def parallel(
 
     The number of core available for the process is controled by the `n_procs` variable.
     """
-    start_time = time.perf_counter()
-    step_counter = 1
-    intermidiate_results = {}
-
+    
     # create a log file. Overwrite if it's there already
     opt_log_file_path = os.path.join(main_calculation_directory, "optimization_log.pkl")
     opt_log_file = open(opt_log_file_path, "wb")
     opt_log_file.close()
+    
+    intermidiate_results = {}
+    step_counter = 1
+    start_time = time.perf_counter()
     while True:
         # create a directory for the current calculation step
-        current_working_directory = os.path.realpath(
-            os.path.join(main_calculation_directory, f"step_{step_counter}")
-        )
+        current_working_directory = os.path.realpath(os.path.join(main_calculation_directory, f"step_{step_counter}"))
         # print(f"cwd {current_working_directory}")
         os.makedirs(current_working_directory)
 
@@ -299,7 +299,7 @@ def parallel(
         network = (
             Network.from_data_file(
                 os.path.join(main_calculation_directory, "original_network.lmp"),
-                include_angles=False,
+                include_angles=True,
                 include_dihedrals=False,
             )
             if step_counter == 1
@@ -554,4 +554,4 @@ def parallel(
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
     wd = os.path.realpath("pos_test")
-    parallel(wd, 14, 0.0000000000000001)
+    parallel(wd, 10, 0.0000000000000001)

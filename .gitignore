@@ -7,5 +7,7 @@ mod_example/optimization_log.pkl
 deform/step_*
 pos_test/
 pos_test/*
+test/
+test/*
 angle_coeff_test/
 angle_coeff_test/*

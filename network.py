@@ -194,7 +194,9 @@ class Angle:
         self.atom3 = atom3
         self.energy = energy
 
+        # not giving a value slows down the network construction 200 times
         if value is None:
+            print("Slow angle calc")
             # stupid algorithm, but works.
             # find all possible copies,
             first_atom_candidates = []
@@ -237,6 +239,7 @@ class Angle:
             self.value = angle
         else:
             self.value = value
+
 
     def __eq__(self, other: Angle) -> bool:
         if self.value == other.value:
@@ -713,6 +716,7 @@ class Network:
             "dihedrals": tuple(),
             "masses": tuple(),
             "bond_coeffs": tuple(),
+            "angle_coeffs" : tuple(),
         }
         atoms_start      : int | None = None
         atoms_end        : int | None = None
@@ -722,6 +726,8 @@ class Network:
         angles_end       : int | None = None
         bond_coeffs_start: int | None = None
         bond_coeffs_end  : int | None = None
+        angle_coeffs_start: int | None = None
+        angle_coeffs_end: int | None = None
         masses_start     : int | None = None
         masses_end       : int | None = None
 
@@ -742,6 +748,10 @@ class Network:
                 angles_start = index + 2
                 angles_end = angles_start + n_angles
                 location["angles"] = (angles_start, angles_end)
+            if "Angle Coeffs" in line.strip():
+                angle_coeffs_start = index + 2
+                angle_coeffs_end = angle_coeffs_start + n_angles
+                location["angle_coeffs"] = (angle_coeffs_start, angle_coeffs_end)
             if "Dihedrals" in line.strip():
                 dihedrals_start = index + 2
                 dihedrals_end = dihedrals_start + n_dihedrals
@@ -794,18 +804,25 @@ class Network:
         header = Header(atoms, bonds, box, atom_types=n_atom_types)
         local_network = Network(atoms, bonds, box, header)
 
-        if location["angles"]:
+        if location["angles"] and location["angle_coeffs"]:
             assert(angles_start is not None)
+            assert(angle_coeffs_start is not None)
+            
             if include_angles is True:
                 atoms_map = {atom.atom_id: atom for atom in atoms}
-                for line in content[angles_start:angles_end]:
-                    data = line.split()
+                for angle_line, angle_coeff_line in zip(
+                    content[angles_start:angles_end],
+                    content[angle_coeffs_start:angle_coeffs_end],
+                ):
+                    data = angle_line.split()
                     angle_id = int(data[0])
                     atom1 = atoms_map[int(data[2])]
                     atom2 = atoms_map[int(data[3])]
                     atom3 = atoms_map[int(data[4])]
-                    angles.append(Angle(angle_id, atom1, atom2, atom3, box))
-                # print(f"Angles read: {len(angles)}")
+                    angle_coeff = float(angle_coeff_line.split()[1])
+                    angle_value = float(angle_coeff_line.split()[2])
+                    angles.append(Angle(angle_id, atom1, atom2, atom3, box, angle_coeff, angle_value))
+                    
                 local_network.angles = angles
                 header.angles = len(angles)
                 header.angle_types = len(angles)
