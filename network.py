@@ -1,7 +1,7 @@
 """
 A simple utility script, which takes lammps dump output and turns it
 into a lammps-readable file.
-v. 0.1.5
+v. 0.1.6
 """
 
 from __future__ import annotations
@@ -13,7 +13,33 @@ from copy import deepcopy
 from math import acos, degrees, sqrt
 from typing import TextIO
 
-from helpers import add_spaces, table_row
+
+def table_row(items: list, widths: list, indent: str = "right") -> str:
+    """
+    Creates a string with the certain number of spaces between words
+    alligned to either right or left
+    """
+    line = []
+    for item, width in zip(items, widths):
+        line.append(add_spaces(str(item), width, indent))
+
+    return "".join(line) + "\n"
+
+
+def add_spaces(string: str, width: int, indent: str = "right") -> str:
+    """
+    If the string is longer than provided width,
+    returns the original string without change.
+    """
+    spaces_to_add = (width - len(string)) * " "
+    if width <= len(string):
+        return string
+    elif indent == "right":
+        return spaces_to_add + string
+    elif indent == "left":
+        return string + spaces_to_add
+    else:
+        raise IOError(f" [ERROR] {indent} is not a valid indent type. Only 'right' and 'left' are supported.")
 
 
 class Atom:
@@ -194,9 +220,7 @@ class Angle:
         self.atom3 = atom3
         self.energy = energy
 
-        # not giving a value slows down the network construction 200 times
         if value is None:
-            print("Slow angle calc")
             # stupid algorithm, but works.
             # find all possible copies,
             first_atom_candidates = []
@@ -239,7 +263,6 @@ class Angle:
             self.value = angle
         else:
             self.value = value
-
 
     def __eq__(self, other: Angle) -> bool:
         if self.value == other.value:
@@ -560,8 +583,18 @@ class Network:
 
 
     def set_angle_coeff(self, value: float):
-        for angle in self.angles:
-            angle.energy = value
+        """Sets a single coefficient for all angles in the network
+
+        Parameters
+        ----------
+        value : float
+            _description_
+        """
+        if self.angles:
+            for angle in self.angles:
+                angle.energy = value
+        else:
+            raise Exception("No angle data present")
 
 
     def set_source_target(
@@ -593,6 +626,7 @@ class Network:
         # fix header
         n_atom_types: int = len(set([atom.atom_type for atom in self.atoms]))
         self.header.atom_types = n_atom_types
+        self.masses = {1: 1.0, 2: source_beads_mass, 3: target_beads_mass}
 
     @classmethod
     def from_atoms(
@@ -707,7 +741,7 @@ class Network:
         atoms = []
         bonds = []
         angles = []
-        dihedrals = []
+        dihedrals = []  # noqa: F841
 
         location: dict[str, tuple[int | None, ...]] = {
             "atoms": tuple(),

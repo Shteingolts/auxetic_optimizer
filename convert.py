@@ -250,6 +250,40 @@ def bulk_load(
     return data
 
 
+def network_from_data(data_object: Data, template: network.Network) -> network.Network:
+    """Transforms PyTorch Data object into Network object.
+
+    Parameters
+    ----------
+    `data_object` : Data
+        PyTorch Data object containing the graph
+    `template` : network.Network
+        original network compressed with lammps from which data object was made
+
+    Returns
+    -------
+    network.Network
+        updated network
+    """
+    # update atom positions
+    for index, (atom, node) in enumerate(zip(template.atoms, data_object.x)):
+        atom.atom_id = index + 1
+        atom.x = float(node[0])
+        atom.y = float(node[1])
+    
+    # update bonds
+    for index, (bond, (id1, id2), (ux, uy, length, k)) in enumerate(zip(template.bonds, data_object.edge_index.T, data_object.edge_attr)):
+        bond.atom1 = template.atoms[int(id1)]
+        bond.atom2 = template.atoms[int(id2)]
+        bond.bond_coefficient = float(k)
+        bond.length = float(length)
+
+    template.box = data_object.box
+    template.header.box_dimensions = template.box.dimensions
+
+    return template
+
+
 def dump(data: list[Data], filedir: str = "", filename: str = "dump_custom.lammpstrj"):
     """Writes a lammps trajctory file from the list of PyTorch Geometric
     Data objects.
