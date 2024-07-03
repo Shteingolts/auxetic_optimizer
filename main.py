@@ -392,9 +392,7 @@ def parallel(
                         others.append(other)
 
             others = sorted(others, key=lambda result: result.dG)
-            print(
-                f"Step {step_counter} => P={format(best_result.elastic_data.p_ratio, '.4f')}"
-            )
+            print(f"Step {step_counter} => P={format(best_result.elastic_data.p_ratio, '.4f')}")
 
             # if step_counter == 1:
             #     okay_to_continue = True
@@ -480,5 +478,5 @@ def parallel(
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    wd = os.path.realpath("pos_test")
+    wd = os.path.realpath("newest_try")
     parallel(wd, 10, 0.0000000000000001)
