@@ -444,9 +444,8 @@ variable C11ave equal (${C11}+${C22})/2.0
 
 variable bulkmodulus equal (${C11ave}+${C12all})/2.0
 variable shearmodulus1 equal ${C66} # simple shear
-variable shearmodulus2 equal (${C11all}+${C22all}-${C12all})/3.0 # pure shear
-
-variable poissonratio equal ${C12all}/${C11ave}
+variable shearmodulus2 equal (${C11ave}-${C12all})/2.0 # pure shear
+variable poissonratio equal (1.0-(${shearmodulus2}/${bulkmodulus}))/(1.0+(${shearmodulus2}/${bulkmodulus}))
 
 # dump 8 all atom 1000 deform_dump.lammpstrj
 

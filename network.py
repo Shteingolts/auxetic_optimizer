@@ -526,7 +526,7 @@ class Network:
         return tuple([atom.atom_id for atom in self.atoms if atom.atom_type == 3])
 
     @staticmethod
-    def _compute_angles(atoms: list[Atom], box: Box) -> list[Angle]:
+    def _compute_angles(atoms: list[Atom], box: Box, energy: float = 0.0) -> list[Angle]:
         atoms_map = {atom.atom_id: atom for atom in atoms}
         angles = set()
         for atom in atoms:
@@ -540,6 +540,7 @@ class Network:
                                 atom,
                                 atoms_map[neighbour_j],
                                 box,
+                                energy=energy
                             )
                         )
         return list(angles)

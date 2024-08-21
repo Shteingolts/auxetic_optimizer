@@ -11,7 +11,12 @@ from multiprocessing import Pool
 
 import numpy as np
 
-from lammps_scripts import CompressionSimulation, ElasticScript, TemperatureRange, LJSimulation
+from lammps_scripts import (
+    CompressionSimulation,
+    ElasticScript,
+    TemperatureRange,
+    LJSimulation,
+)
 from network import Bond, Network
 
 
@@ -175,11 +180,12 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
     log_file = os.path.join(setup.network_directory, "log.lammps")
 
     original_network = Network.from_data_file(
-        original_network_file,
-        include_angles=True,
-        include_dihedrals=False)
+        original_network_file, include_angles=True, include_dihedrals=False
+    )
     original_network.write_to_file(os.path.join(setup.network_directory, "network.lmp"))
-    initial_elastic_data: ElasticData = get_elastic_data_from_file(setup.network_directory)
+    initial_elastic_data: ElasticData = get_elastic_data_from_file(
+        setup.network_directory
+    )
     print(initial_elastic_data)
     current_elastic_data = initial_elastic_data
     best_dG: float = 10000000000000.0
@@ -189,8 +195,12 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
     for index, bond in enumerate(setup.bonds_list):
         # deepcopy because we don't want to modify the original network
         current_network = deepcopy(original_network)
-        # remove a bond and write the network to a file
+        # remove a bond, recompute angles and write the network to a file
         current_network.remove_bond(bond)
+        reduced_angles = current_network._compute_angles(current_network.atoms, current_network.box, 0.01)
+        current_network.angles = reduced_angles
+        current_network.header.angles = len(reduced_angles)
+        current_network.header.angle_types = len(reduced_angles)
         current_network.write_to_file("network.lmp")
 
         # run lammps on the previously written network
@@ -218,7 +228,7 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
             pass
             # don't need to do anything when the removal
             # of the bond results in the increase of P ratio
-    
+
     end_local = time.perf_counter()
     print(f"{len(setup.bonds_list)} checked in {end_local-start_local:.3f} seconds")
     return CalculationResult(bond_to_be_deleted, current_elastic_data, best_dG, others)
@@ -267,18 +277,20 @@ def parallel(
 
     The number of core available for the process is controled by the `n_procs` variable.
     """
-    
+
     # create a log file. Overwrite if it's there already
     opt_log_file_path = os.path.join(main_calculation_directory, "optimization_log.pkl")
     opt_log_file = open(opt_log_file_path, "wb")
     opt_log_file.close()
-    
+
     intermidiate_results = {}
     step_counter = 1
     start_time = time.perf_counter()
     while True:
         # create a directory for the current calculation step
-        current_working_directory = os.path.realpath(os.path.join(main_calculation_directory, f"step_{step_counter}"))
+        current_working_directory = os.path.realpath(
+            os.path.join(main_calculation_directory, f"step_{step_counter}")
+        )
         # print(f"cwd {current_working_directory}")
         os.makedirs(current_working_directory)
 
@@ -287,7 +299,9 @@ def parallel(
         print(f"Step {step_counter}")
         if step_counter != 1:
             shutil.copy(
-                os.path.join(main_calculation_directory, f"step_{step_counter-1}", "result.lmp"),
+                os.path.join(
+                    main_calculation_directory, f"step_{step_counter-1}", "result.lmp"
+                ),
                 os.path.join(current_working_directory),
             )
             os.rename(
@@ -303,7 +317,9 @@ def parallel(
                 include_dihedrals=False,
             )
             if step_counter == 1
-            else Network.from_data_file(os.path.join(current_working_directory, "original_network.lmp"))
+            else Network.from_data_file(
+                os.path.join(current_working_directory, "original_network.lmp")
+            )
         )
 
         n_tasks = len(network.bonds) // n_procs
@@ -327,7 +343,9 @@ def parallel(
 
         calculations: list[CalculationSetup] = []
         for i, task in enumerate(tasks):
-            core_dir = os.path.realpath(os.path.join(current_working_directory, f"core_{i+1}"))
+            core_dir = os.path.realpath(
+                os.path.join(current_working_directory, f"core_{i+1}")
+            )
             os.makedirs(core_dir)
             calculations.append(CalculationSetup(core_dir, task))
             for file in calc_files:
@@ -380,12 +398,16 @@ def parallel(
                     for other in result.others:
                         others.append(other)
                 else:
-                    others.append(CalculationResult(result.bond, result.elastic_data, result.dG))
+                    others.append(
+                        CalculationResult(result.bond, result.elastic_data, result.dG)
+                    )
                     for other in result.others:
                         others.append(other)
 
             others = sorted(others, key=lambda result: result.dG)
-            print(f"Step {step_counter} => P={format(best_result.elastic_data.p_ratio, '.4f')}")
+            print(
+                f"Step {step_counter} => P={format(best_result.elastic_data.p_ratio, '.4f')}"
+            )
 
             okay_to_continue = True
             if step_counter == max_steps:
@@ -394,10 +416,12 @@ def parallel(
                 # raise NotImplementedError('do not use that')
                 end_time = time.perf_counter()
                 print(f"Threshold {dG_threshold} achieved at step {step_counter}.\nElapsed time: {format(start_time - end_time, '.3f')} s")
-                network = Network.from_data_file(
-                    os.path.join(current_working_directory, "original_network.lmp")
-                )
+                network = Network.from_data_file(os.path.join(current_working_directory, "original_network.lmp"))
                 network.remove_bond(best_result.bond)
+                reduced_angles = network._compute_angles(network.atoms, network.box, 0.01)
+                network.angles = reduced_angles
+                network.header.angles = len(reduced_angles)
+                network.header.angle_types = len(reduced_angles)
                 intermidiate_results[step_counter] = StepResult(
                     step_counter,
                     best_result.elastic_data,
@@ -421,24 +445,28 @@ def parallel(
                     )
 
                 # do the compression
-                compression_directory = os.path.join(main_calculation_directory, 'compression') 
+                compression_directory = os.path.join(main_calculation_directory, "compression")
                 os.makedirs(compression_directory, exist_ok=True)
                 network.set_angle_coeff(0.01)
-                network.write_to_file(os.path.join(compression_directory, 'final_result.lmp'))
+                network.write_to_file(os.path.join(compression_directory, "final_result.lmp"))
                 comp_sim = CompressionSimulation(
-                    strain_direction='x',
+                    strain_direction="x",
                     box_size=network.box.x,
-                    network_filename='final_result.lmp',
+                    network_filename="final_result.lmp",
                     strain=0.03,
-                    temperature_range=TemperatureRange(1e-7, 1e-7, 10)
+                    temperature_range=TemperatureRange(1e-7, 1e-7, 10),
                 )
                 comp_sim._recalc_dump_freq(network.box.x)
                 comp_sim.write_to_file(compression_directory)
-                run_lammps(compression_directory, input_file='in.deformation')
+                run_lammps(compression_directory, input_file="in.deformation")
 
                 # clean up space after
                 print("Cleaning up calculation directories...")
-                step_dirs = [obj for obj in os.listdir(main_calculation_directory) if obj.startswith("step_")]
+                step_dirs = [
+                    obj
+                    for obj in os.listdir(main_calculation_directory)
+                    if obj.startswith("step_")
+                ]
                 for d in step_dirs:
                     shutil.rmtree(os.path.join(main_calculation_directory, d))
 
@@ -447,6 +475,10 @@ def parallel(
             if okay_to_continue:
                 network = Network.from_data_file(os.path.join(current_working_directory, "original_network.lmp"))
                 network.remove_bond(best_result.bond)
+                reduced_angles = network._compute_angles(network.atoms, network.box, 0.01)
+                network.angles = reduced_angles
+                network.header.angles = len(reduced_angles)
+                network.header.angle_types = len(reduced_angles)
                 intermidiate_results[step_counter] = StepResult(
                     step_counter,
                     best_result.elastic_data,
@@ -455,6 +487,7 @@ def parallel(
                     closest_contenders=others,
                 )
                 network.write_to_file(os.path.join(current_working_directory, "result.lmp"))
+                
                 with open(opt_log_file_path, "ab") as opt_log_file:
                     pickle.dump(
                         StepResult(
@@ -470,31 +503,43 @@ def parallel(
         else:
             # if no improvement was observed at all, end the process
             end_time = time.perf_counter()
-            print(f"No change in fitness function at step {step_counter}.\nWall time: {format(start_time - end_time, '.3f')} s")
-            final_network_file = os.path.join(main_calculation_directory, "final_result.lmp")
+            print(
+                f"No change in fitness function at step {step_counter}.\nWall time: {format(start_time - end_time, '.3f')} s"
+            )
+            final_network_file = os.path.join(
+                main_calculation_directory, "final_result.lmp"
+            )
             network.write_to_file(final_network_file)
             print(f"The optimized network was written in {final_network_file}")
 
             # do the compression
-            compression_directory = os.path.join(main_calculation_directory, 'compression') 
+            compression_directory = os.path.join(
+                main_calculation_directory, "compression"
+            )
             print(f"Network compression calculation: {compression_directory}")
             os.makedirs(compression_directory, exist_ok=True)
             network.set_angle_coeff(0.01)
-            network.write_to_file(os.path.join(compression_directory, 'final_result.lmp'))
+            network.write_to_file(
+                os.path.join(compression_directory, "final_result.lmp")
+            )
             comp_sim = CompressionSimulation(
-                strain_direction='x',
+                strain_direction="x",
                 box_size=network.box.x,
-                network_filename='final_result.lmp',
+                network_filename="final_result.lmp",
                 strain=0.03,
-                temperature_range=TemperatureRange(1e-7, 1e-7, 10)
+                temperature_range=TemperatureRange(1e-7, 1e-7, 10),
             )
             comp_sim._recalc_dump_freq(network.box.x)
             comp_sim.write_to_file(compression_directory)
-            run_lammps(compression_directory, input_file='in.deformation')
+            run_lammps(compression_directory, input_file="in.deformation")
 
             # clean up space after
             print("Cleaning up calculation directories...")
-            step_dirs = [obj for obj in os.listdir(main_calculation_directory) if obj.startswith("step_")]
+            step_dirs = [
+                obj
+                for obj in os.listdir(main_calculation_directory)
+                if obj.startswith("step_")
+            ]
             for d in step_dirs:
                 shutil.rmtree(os.path.join(main_calculation_directory, d))
 
@@ -506,53 +551,13 @@ def parallel(
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    wd = os.path.realpath("123")
-    os.makedirs(wd)
-    
-    n_atoms = np.linspace(80, 400, 33, dtype=int)
-    batch_size = 3
-    # make networks first
-    for size in n_atoms:
-        for n in range(batch_size):
-            cwd = os.path.join(wd, str(size), str(n))
-            os.makedirs(cwd)
+    wd = os.path.realpath("retry")
 
-            # LJ sim
-            lj_dir = os.path.join(cwd, "LJ_sim")
-            os.makedirs(lj_dir)
-            lj_sim = LJSimulation(
-                size,
-                n_atom_types=4,
-                temperature_range=TemperatureRange(T_start=0.005, T_end=0.001, bias=10.0),
-                n_steps=30000
-            )
-            lj_sim.write_to_file(lj_dir)
-            run_lammps(lj_dir, input_file="lammps.in", mode="single")
-                
-            # Create a network from LJ coords. 
-            new_network = Network.from_atoms(
-                os.path.join(lj_dir, "coord.dat"),
-                periodic=True,
-                include_default_masses=1e6, # arbitrary mass for interesting compression
-                include_angles=True,
-                include_dihedrals=False
-            )
-            # set angle coeffs to 0.01
-            new_network.set_angle_coeff(0.01)
-
-            # save network
-            new_network.write_to_file(os.path.join(cwd, "original_network.lmp"))
-
-            # write files for elastic script
-            elasticsim = ElasticScript("original_network.lmp")
-            elasticsim.write_to_file(wd)
+    # write files for elastic script
+    elasticsim = ElasticScript("original_network.lmp")
+    elasticsim.write_to_file(wd)
 
     # call optimization function
     parallel(
-        wd,
-        10,
-        1e-16,
-        1000)
-
-
-
+        main_calculation_directory=wd, n_procs=10, dG_threshold=1e-16, max_steps=1000
+    )
