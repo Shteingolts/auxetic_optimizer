@@ -1,0 +1,197 @@
+LAMMPS (2 Aug 2023 - Update 3)
+  using 1 OpenMP thread(s) per MPI task
+
+#area fraction
+# 0.85 is in the liquid state at T=1
+# 0.90 is a crystalline solid)
+variable afrac equal 1.00
+
+#number of particles in 20x20 area
+variable npart  equal ${afrac}*25
+variable npart  equal 1*25
+
+
+#we use the LJ potential epsilon as energy scale,
+#and sigma as length scale.
+units		 lj
+dimension    2
+atom_style	 sphere
+boundary     p p p
+neighbor     0.5   bin
+neigh_modify every 1 delay 0 check yes
+
+
+# create 2D box
+region box block -7.0 7.0 -7.0 7.0 -0.1 0.1
+create_box 4 box
+Created orthogonal box = (-7 -7 -0.1) to (7 7 0.1)
+  1 by 1 by 1 MPI processor grid
+
+
+# put z=0 all the time
+fix 2d  all enforce2d
+comm_modify vel yes
+
+
+# put the particles randomly into the box
+create_atoms 1 random ${npart} 173922 NULL overlap 0.5 maxtry 100
+create_atoms 1 random 25 173922 NULL overlap 0.5 maxtry 100
+Created 25 atoms
+  using lattice units in orthogonal box = (-7 -7 -0.1) to (7 7 0.1)
+  create_atoms CPU = 0.000 seconds
+create_atoms 2 random ${npart} 346211 NULL overlap 0.5 maxtry 100
+create_atoms 2 random 25 346211 NULL overlap 0.5 maxtry 100
+Created 25 atoms
+  using lattice units in orthogonal box = (-7 -7 -0.1) to (7 7 0.1)
+  create_atoms CPU = 0.000 seconds
+create_atoms 3 random ${npart} 587104 NULL overlap 0.5 maxtry 100
+create_atoms 3 random 25 587104 NULL overlap 0.5 maxtry 100
+Created 25 atoms
+  using lattice units in orthogonal box = (-7 -7 -0.1) to (7 7 0.1)
+  create_atoms CPU = 0.000 seconds
+create_atoms 4 random ${npart} 991942 NULL overlap 0.5 maxtry 100
+create_atoms 4 random 25 991942 NULL overlap 0.5 maxtry 100
+Created 25 atoms
+  using lattice units in orthogonal box = (-7 -7 -0.1) to (7 7 0.1)
+  create_atoms CPU = 0.000 seconds
+
+
+
+# create groups named size1 to size4 of 4 types of atoms defined above
+group size1 type 1
+25 atoms in group size1
+group size2 type 2
+25 atoms in group size2
+group size3 type 3
+25 atoms in group size3
+group size4 type 4
+25 atoms in group size4
+
+
+
+# sets the sizes of atoms within the defined groups
+set group size1 diameter 1.6
+Setting atom values ...
+  25 settings made for diameter
+set group size2 diameter 1.4
+Setting atom values ...
+  25 settings made for diameter
+set group size3 diameter 1.2
+Setting atom values ...
+  25 settings made for diameter
+set group size4 diameter 1.0
+Setting atom values ...
+  25 settings made for diameter
+
+
+
+# define soft granualr potential forces (as done in Reid paper).
+pair_style gran/hooke 1.0 0.0 0.0 0.0 0.0 0
+pair_coeff * *
+
+# minimize energy first to avoid overlapping particles
+minimize 1e-10 1e-10 1000 1000
+Generated 0 of 6 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 2.1
+  ghost atom cutoff = 2.1
+  binsize = 1.05, bins = 14 14 1
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair gran/hooke, perpetual
+      attributes: half, newton on, size
+      pair build: half/size/bin/newton
+      stencil: half/bin/2d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 5.424 | 5.424 | 5.424 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+         0   0              0              0              0              0.088891445  
+         1   0              0              0              0              0.088891445  
+Loop time of 0.000134632 on 1 procs for 1 steps with 100 atoms
+
+20.1% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = linesearch alpha is zero
+  Energy initial, next-to-last, final = 
+                     0                  0                  0
+  Force two-norm initial, final = 5.9766251 5.9766251
+  Force max component initial, final = 1.1613126 1.1613126
+  Final line search alpha, max atom move = 2.0530095e-08 2.3841858e-08
+  Iterations, force evaluations = 1 23
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 8.1201e-05 | 8.1201e-05 | 8.1201e-05 |   0.0 | 60.31
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 2.1379e-05 | 2.1379e-05 | 2.1379e-05 |   0.0 | 15.88
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 5.35e-06   | 5.35e-06   | 5.35e-06   |   0.0 |  3.97
+Other   |            | 2.67e-05   |            |       | 19.83
+
+Nlocal:            100 ave         100 max         100 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:             64 ave          64 max          64 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:            242 ave         242 max         242 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 242
+Ave neighs/atom = 2.42
+Neighbor list builds = 0
+Dangerous builds = 0
+#fix 10 all box/relax aniso ${Pres} vmax 0.001
+
+
+reset_timestep 0
+fix 10 all npt/sphere temp 0.005 0.001 10.0 iso 0.2 0.2 0.6 disc
+
+
+# output time step, temperature, average kinetic and potential energy
+# thermo_style custom step temp ke pe
+# thermo		100
+dump            1 all atom 50 dump.lammpstrj
+
+#time step of integrator
+timestep	0.006
+
+#number of integration steps to run
+run		30000
+Generated 0 of 6 mixed pair_coeff terms from geometric mixing rule
+Per MPI rank memory allocation (min/avg/max) = 4.299 | 4.299 | 4.299 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press          Volume    
+         0   0              0              0              0              0.088891445    196          
+     30000   0.00146522     0              0              0.0014505678   0.2031213      120.01669    
+Loop time of 0.455834 on 1 procs for 30000 steps with 100 atoms
+
+Performance: 34117652.430 tau/day, 65813.373 timesteps/s, 6.581 Matom-step/s
+99.6% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.25804    | 0.25804    | 0.25804    |   0.0 | 56.61
+Neigh   | 0.003321   | 0.003321   | 0.003321   |   0.0 |  0.73
+Comm    | 0.035752   | 0.035752   | 0.035752   |   0.0 |  7.84
+Output  | 0.029586   | 0.029586   | 0.029586   |   0.0 |  6.49
+Modify  | 0.11916    | 0.11916    | 0.11916    |   0.0 | 26.14
+Other   |            | 0.009972   |            |       |  2.19
+
+Nlocal:            100 ave         100 max         100 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:             94 ave          94 max          94 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:            319 ave         319 max         319 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 319
+Ave neighs/atom = 3.19
+Neighbor list builds = 315
+Dangerous builds = 5
+
+write_data coord.dat
+System init for write_data ...
+Generated 0 of 6 mixed pair_coeff terms from geometric mixing rule
+Total wall time: 0:00:00

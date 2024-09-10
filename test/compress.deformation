@@ -46,7 +46,7 @@
 
 
 variable dt equal 0.01
-variable strain equal 0.02
+variable strain equal 0.03
 variable srate equal 1e-5
 variable M equal 1000 # averaging time for properties
 variable strainsteps equal ${strain}/${dt}/${srate}
@@ -91,7 +91,7 @@ timestep        ${dt}
 variable nsteps equal round(${strainsteps})
 
 fix             4 all nve
-fix             5 all langevin 0.1 0.1 1 904297
+fix             5 all langevin 1e-7 1e-7 1 904297
 #fix		6 all press/berendsen y  0.0 0.0 1 x 0.0 0.0 10
 fix             6 all nph y 0.0 0.0 10 ptemp 0.1 # x 0.0 0.0 10
 

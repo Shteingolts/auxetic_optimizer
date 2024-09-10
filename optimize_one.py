@@ -5,6 +5,7 @@ import os
 import pickle
 import shutil
 import subprocess
+import sys
 import time
 from copy import deepcopy
 from multiprocessing import Pool
@@ -183,9 +184,7 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
         original_network_file, include_angles=True, include_dihedrals=False
     )
     original_network.write_to_file(os.path.join(setup.network_directory, "network.lmp"))
-    initial_elastic_data: ElasticData = get_elastic_data_from_file(
-        setup.network_directory
-    )
+    initial_elastic_data: ElasticData = get_elastic_data_from_file(setup.network_directory)
     print(initial_elastic_data)
     current_elastic_data = initial_elastic_data
     best_dG: float = 10000000000000.0
@@ -208,6 +207,7 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
 
         # get the new elastic data for the network with N-1 bonds
         new_elastic_data = get_elastic_data(log_file)
+        
         dG = abs(initial_elastic_data.shear_modulus - new_elastic_data.shear_modulus)
 
         # nominate the bond for deletion if the change in G
@@ -227,10 +227,10 @@ def run_iteration(setup: CalculationSetup) -> CalculationResult:
         else:
             pass
             # don't need to do anything when the removal
-            # of the bond results in the increase of P ratio
 
     end_local = time.perf_counter()
     print(f"{len(setup.bonds_list)} checked in {end_local-start_local:.3f} seconds")
+    print(best_dG)
     return CalculationResult(bond_to_be_deleted, current_elastic_data, best_dG, others)
 
 
@@ -288,9 +288,7 @@ def parallel(
     start_time = time.perf_counter()
     while True:
         # create a directory for the current calculation step
-        current_working_directory = os.path.realpath(
-            os.path.join(main_calculation_directory, f"step_{step_counter}")
-        )
+        current_working_directory = os.path.realpath(os.path.join(main_calculation_directory, f"step_{step_counter}"))
         # print(f"cwd {current_working_directory}")
         os.makedirs(current_working_directory)
 
@@ -343,9 +341,7 @@ def parallel(
 
         calculations: list[CalculationSetup] = []
         for i, task in enumerate(tasks):
-            core_dir = os.path.realpath(
-                os.path.join(current_working_directory, f"core_{i+1}")
-            )
+            core_dir = os.path.realpath(os.path.join(current_working_directory, f"core_{i+1}"))
             os.makedirs(core_dir)
             calculations.append(CalculationSetup(core_dir, task))
             for file in calc_files:
@@ -391,6 +387,7 @@ def parallel(
         if results:
             # sort list of CalculationResults by the value of fitness function from lowest to highest
             results = sorted(results, key=lambda result: result.dG)
+            # results = sorted(results, key=lambda result: result.elastic_data.p_ratio, reverse=True)
             best_result = results[0]
             others: list[CalculationResult] = []
             for index, result in enumerate(results):
@@ -398,16 +395,17 @@ def parallel(
                     for other in result.others:
                         others.append(other)
                 else:
-                    others.append(
-                        CalculationResult(result.bond, result.elastic_data, result.dG)
-                    )
+                    others.append(CalculationResult(result.bond, result.elastic_data, result.dG))
                     for other in result.others:
                         others.append(other)
 
+            print(f"Deletion will result in:\n{best_result.elastic_data}")
+            # for result in results:
+            #     print(result.elastic_data)
+            sys.exit(1)
+
             others = sorted(others, key=lambda result: result.dG)
-            print(
-                f"Step {step_counter} => P={format(best_result.elastic_data.p_ratio, '.4f')}"
-            )
+            print(f"Step {step_counter} => P={format(best_result.elastic_data.p_ratio, '.4f')}")
 
             okay_to_continue = True
             if step_counter == max_steps:
@@ -503,25 +501,19 @@ def parallel(
         else:
             # if no improvement was observed at all, end the process
             end_time = time.perf_counter()
-            print(
-                f"No change in fitness function at step {step_counter}.\nWall time: {format(start_time - end_time, '.3f')} s"
-            )
-            final_network_file = os.path.join(
-                main_calculation_directory, "final_result.lmp"
-            )
+            print(f"No change in fitness function at step {step_counter}.")
+            print(f"Wall time: {format(start_time - end_time, '.3f')} s")
+            
+            final_network_file = os.path.join(main_calculation_directory, "final_result.lmp")
             network.write_to_file(final_network_file)
             print(f"The optimized network was written in {final_network_file}")
 
             # do the compression
-            compression_directory = os.path.join(
-                main_calculation_directory, "compression"
-            )
+            compression_directory = os.path.join(main_calculation_directory, "compression")
             print(f"Network compression calculation: {compression_directory}")
             os.makedirs(compression_directory, exist_ok=True)
             network.set_angle_coeff(0.01)
-            network.write_to_file(
-                os.path.join(compression_directory, "final_result.lmp")
-            )
+            network.write_to_file(os.path.join(compression_directory, "final_result.lmp"))
             comp_sim = CompressionSimulation(
                 strain_direction="x",
                 box_size=network.box.x,
@@ -558,6 +550,4 @@ if __name__ == "__main__":
     elasticsim.write_to_file(wd)
 
     # call optimization function
-    parallel(
-        main_calculation_directory=wd, n_procs=10, dG_threshold=1e-16, max_steps=1000
-    )
+    parallel(main_calculation_directory=wd, n_procs=12, dG_threshold=1e-16)

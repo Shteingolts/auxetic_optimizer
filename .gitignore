@@ -1,10 +1,7 @@
 __pycache__
 mod_example
-deform
-dense_network
-pos_test
 test
-test_elastic
 angle_coeff_test
-dense_network
-newest_try
+networks_lowP
+test
+working_elastic
