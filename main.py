@@ -243,15 +243,6 @@ def load_optimization_log(pickle_file: str) -> list[StepResult]:
     return optimization_log
 
 
-def print_history(log_file_path: str, n_closest: int = 5):
-    history = load_optimization_log(log_file_path)
-    for step in history[:10]:
-        print(f"{step.step_number}: {round(step.dG, 4)}")
-        for index, close in enumerate(step.closest_contenders[:5]):
-            print(f"  +{round(close.elastic_data-step.dG, 4)}")
-        print("--------------------")
-
-
 def parallel(
     main_calculation_directory: str,
     n_procs: int = 6,
